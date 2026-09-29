@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Member Central Metrics Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f0f0ed;color:#1a1a1a;padding:1rem;min-height:100vh}
+.container{max-width:1100px;margin:0 auto;background:#fff;border-radius:12px;padding:1.5rem;box-shadow:0 1px 6px rgba(0,0,0,.1)}
+.tabs{display:flex;gap:6px;margin-bottom:1.5rem;border-bottom:1px solid #e5e5e5;padding-bottom:1rem;flex-wrap:wrap}
+.manage-drawer{display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;margin-bottom:1.5rem;gap:8px;flex-wrap:wrap}
+.manage-drawer.open{display:flex}
+.manage-btn{font-size:12px;padding:5px 14px;cursor:pointer;border-radius:8px;border:1px solid #ddd;background:#fff;color:#555;transition:all .15s}
+.manage-btn:hover{background:#f0f0f0;color:#1a1a1a}
+.manage-btn.on{background:#1a3a6b;color:#fff;border-color:#1a3a6b}
+
+.metric-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+.metric-card{background:#f8f8f8;border-radius:10px;padding:12px 14px;text-align:center;border-top:3px solid #1a3a6b}
+.metric-card .mc-val{font-size:26px;font-weight:600;color:#1a3a6b;margin:4px 0}
+.metric-card .mc-lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.04em}
+.metric-card .mc-sub{font-size:11px;color:#aaa;margin-top:2px}
+.goals-box{background:#f0f4ff;border-radius:10px;padding:12px 16px;margin-bottom:1.5rem}
+.goals-box h3{font-size:12px;font-weight:600;color:#1a3a6b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.goals-list{display:flex;flex-direction:column;gap:4px}
+.goal-item{font-size:13px;color:#333;display:flex;align-items:flex-start;gap:8px}
+.goal-item::before{content:"•";color:#1a3a6b;font-weight:bold;flex-shrink:0;margin-top:1px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+.chart-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:16px}
+.chart-card h3{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:6px}
+.goal-banner{border-radius:6px;padding:5px 10px;font-size:12px;font-weight:500;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.goal-banner.target{background:#fff0f0;color:#c00}
+.stat-banner{border-radius:6px;padding:6px 10px;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.stat-banner.met{background:#e8f5e9;color:#1b5e20}
+.stat-banner.notmet{background:#fff3e0;color:#e65100}
+.pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;flex-shrink:0}
+.pill.met{background:#2e7d32;color:#fff}
+.pill.notmet{background:#e65100;color:#fff}
+.chart-wrap{position:relative;height:200px}
+.empty-state{background:#f8f8f8;border-radius:10px;padding:2rem;text-align:center;color:#888;font-size:13px;margin-bottom:1.5rem}
+
+.data-table-wrap{overflow-x:auto;margin-top:1rem}
+table.data-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
+table.data-tbl th{background:#1a3a6b;color:#fff;padding:7px 10px;text-align:center;white-space:nowrap;font-weight:500}
+table.data-tbl td{padding:6px 10px;border-bottom:1px solid #eee;text-align:center}
+table.data-tbl tr:nth-child(even) td{background:#f8f8f8}
+table.data-tbl tr.current td{background:#fff8e1;font-weight:500}
+.editable-cell{cursor:pointer;display:inline-block;min-width:30px;border-radius:4px;padding:1px 4px;transition:background .15s}
+.editable-cell:hover{background:#e8f0fe;outline:1px dashed #4a7fd4}
+.editable-input{font-size:12px;padding:2px 6px;border:1.5px solid #1a3a6b;border-radius:4px;width:80px;text-align:center;background:#fff;font-family:inherit}
+
+.card{background:#f8f8f8;border-radius:8px;padding:10px 14px;margin-bottom:6px}
+.lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.val{font-size:20px;font-weight:500}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:1rem}
+.sec{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:1rem 0 6px}
+.mono{background:#f8f8f8;border-radius:8px;padding:12px 14px;font-size:12px;font-family:'Courier New',monospace;white-space:pre-wrap;line-height:1.6;color:#1a1a1a}
+.dz{border:1.5px dashed #ccc;border-radius:10px;padding:1rem;text-align:center;cursor:pointer;transition:background .15s}
+.dz:hover,.dz.drag{background:#f5f5f5}
+.dz.ok{border-style:solid;border-color:#2d7d46;background:#eaf6ee}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500}
+.ok-b{background:#eaf6ee;color:#1e6e3a}
+.warn-b{background:#fff8e1;color:#7a5c00}
+.info-b{background:#e3f0fd;color:#1254a0}
+.etable{width:100%;border-collapse:collapse;font-size:12px}
+.etable th{background:#f5f5f5;padding:6px 8px;text-align:left;border-bottom:1px solid #eee;font-weight:500}
+.etable td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+.etable tr:last-child td{border-bottom:none}
+.pct-row{background:#f8f8f8;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.btn{font-size:12px;padding:5px 14px;cursor:pointer;border-radius:8px;border:1px solid #ddd;background:#fff;color:#1a1a1a;transition:background .15s}
+.btn:hover{background:#f5f5f5}
+.btn-primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a;font-size:13px;padding:7px 20px}
+.btn-primary:hover{background:#333}
+textarea,input[type=text],input[type=number]{font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#1a1a1a;width:100%;font-family:inherit}
+textarea{resize:vertical}
+.hint{font-size:11px;color:#888;margin-top:3px}
+.err{display:none;font-size:12px;color:#c00;margin-top:6px;padding:6px 10px;background:#fff0f0;border-radius:6px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #ddd;border-top-color:#888;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+input[type=file]{display:none}
+.stab-row{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;border-bottom:1px solid #e5e5e5;padding-bottom:1rem">
+  <h1 style="margin:0">Member Central Metrics Hub</h1>
+  <button id="manage-btn-top" onclick="toggleManage(this)" style="font-size:12px;padding:5px 12px;cursor:pointer;border-radius:8px;border:1px solid #ddd;background:#fff;color:#666;display:flex;align-items:center;gap:5px">
+    <span>⚙</span> <span id="manage-label">Manage</span>
+  </button>
+</div>
+<div class="manage-drawer" id="manage-drawer">
+  <span style="font-size:11px;color:#999;align-self:center;margin-right:4px;text-transform:uppercase;letter-spacing:.05em">Tools:</span>
+  <button class="manage-btn" id="mb1" onclick="manageNavTo(1,this)">Sprint report</button>
+  <button class="manage-btn" id="mb2" onclick="manageNavTo(2,this)">Epic % complete</button>
+  <button class="manage-btn" id="mb3" onclick="manageNavTo(3,this)">Invoice</button>
+  <button class="manage-btn" style="margin-left:auto;color:#999" onclick="manageNavTo(0,null)">← Back to Dashboard</button>
+</div>
+
+<!-- ══ DASHBOARD ══════════════════════════════════════════════════════════ -->
+<div class="page on" id="pg0">
+  <div class="metric-cards" id="dash-cards">
+    <div class="metric-card"><p class="mc-lbl">Sprint</p><p class="mc-val" id="dc-sprint">—</p></div>
+    <div class="metric-card"><p class="mc-lbl">SP Committed</p><p class="mc-val" id="dc-committed">—</p></div>
+    <div class="metric-card" id="dc-done-card"><p class="mc-lbl">SP Done</p><p class="mc-val" id="dc-done">—</p></div>
+    <div class="metric-card"><p class="mc-lbl">Goals Achieved</p><p class="mc-val" id="dc-goals">—</p></div>
+    <div class="metric-card"><p class="mc-lbl">Avg Velocity<p class="mc-sub">last 3 sprints</p></p><p class="mc-val" id="dc-avgvel">—</p></div>
+    <div class="metric-card" id="dc-epicpct-card"><p class="mc-lbl">Project % Complete<p class="mc-sub">from epic CSV</p></p><p class="mc-val" id="dc-epicpct">—</p></div>
+  </div>
+
+  <div class="goals-box" id="dash-goals-box" style="display:none">
+    <h3>Sprint Goals</h3>
+    <div class="goals-list" id="dash-goals-list"></div>
+  </div>
+
+  <div id="dash-empty" class="empty-state">
+    No sprint data yet. Open <strong>Manage → Sprint report</strong> and paste your first sprint report to get started.
+  </div>
+
+  <div id="dash-charts-wrap" style="display:none">
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Sprint Goal Completion Rate</h3>
+        <div class="goal-banner target">🎯 Goal: Achieve 80% Sprint Goal Completion</div>
+        <div class="stat-banner" id="gcr-stat"><span class="pill">—</span><span id="gcr-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-gcr"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Sprint Commitment Reliability</h3>
+        <div class="goal-banner target">🎯 Goal: Achieve Sprint Commitment Reliability of 80% or higher</div>
+        <div class="stat-banner" id="scr-stat"><span class="pill">—</span><span id="scr-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-scr"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Median Cycle Time</h3>
+        <div class="goal-banner target">🎯 Goal: Median cycle time/sprint of 6 days</div>
+        <div class="stat-banner" id="mct-stat"><span class="pill">—</span><span id="mct-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-mct"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Average Velocity</h3>
+        <div class="goal-banner target">🎯 Goal: Stable or improving trend over time</div>
+        <div class="stat-banner" id="vel-stat"><span class="pill">—</span><span id="vel-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-vel"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Code Quality vs. Value Add</h3>
+        <div class="goal-banner target">🎯 Goal: Stable or improving trend over time of 10% defect rate</div>
+        <div class="stat-banner" id="def-stat"><span class="pill">—</span><span id="def-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-def"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Median Lead Time</h3>
+        <div class="goal-banner target">🎯 Goal: Stable or improving trend over time of 30 days</div>
+        <div class="stat-banner" id="mlt-stat"><span class="pill">—</span><span id="mlt-txt">Loading...</span></div>
+        <div class="chart-wrap"><canvas id="chart-mlt"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SPRINT REPORT ══════════════════════════════════════════════════════ -->
+<div class="page" id="pg1">
+  <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px">
+    <p style="font-size:12px;color:#666;margin:0">Paste Jira sprint report text:</p>
+    <button class="btn" style="font-size:11px;padding:3px 10px;color:#999" onclick="startNewSprint()" title="Clears saved sprint context — use when a new sprint begins">↻ Start new sprint</button>
+  </div>
+  <textarea id="paste" rows="7" placeholder="Paste sprint report here..."></textarea>
+  <button class="btn" style="margin-top:8px" onclick="runParse()">&#9654; Parse</button>
+  <span id="parsed-indicator" style="display:none;font-size:11px;color:#1e6e3a;margin-left:8px">✓ Saved automatically — available until you start a new sprint</span>
+  <div class="err" id="s-err"></div>
+  <div id="s-out" style="margin-top:1rem"></div>
+
+  <hr style="border:none;border-top:1px solid #eee;margin:1.5rem 0">
+  <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#555;text-transform:uppercase;letter-spacing:.04em">Source Data — Sprint History</h3>
+  <div class="data-table-wrap">
+    <table class="data-tbl" id="source-table">
+      <thead><tr>
+        <th>Sprint</th><th>Release</th><th># Goals</th><th>Goals Achieved</th>
+        <th>% Achieved</th><th>Goal % Target</th><th>SP Committed</th>
+        <th>SP Done</th><th>% SP Complete</th><th>Cycle Time (days)</th>
+        <th>Lead Time (days)</th><th>Defects (pts)</th><th>Value (pts)</th>
+        <th>Defect Rate %</th>
+      </tr></thead>
+      <tbody id="source-tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="btn" onclick="showAddForm()">+ Add / edit sprint data</button>
+    <button class="btn" onclick="exportForPublishing()">📦 Export for publishing (Confluence embed)</button>
+    <span style="font-size:11px;color:#888">Saved automatically in your browser</span>
+  </div>
+  <div id="export-output" style="margin-top:10px"></div>
+
+  <div id="add-form" style="display:none;background:#f8f8f8;border-radius:10px;padding:16px;margin-top:1rem">
+    <h3 style="font-size:13px;font-weight:600;margin-bottom:12px">Add / Update Sprint Data</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><p class="lbl">Sprint #</p><input type="number" id="f-sprint" placeholder="1"></div>
+      <div><p class="lbl">Release</p><input type="text" id="f-release" placeholder="e.g. Release 1.0"></div>
+      <div><p class="lbl"># Sprint Goals</p><input type="number" id="f-goals"></div>
+      <div><p class="lbl">Goals Achieved</p><input type="number" id="f-goalsmet"></div>
+      <div><p class="lbl">SP Committed</p><input type="number" id="f-committed"></div>
+      <div><p class="lbl">SP Done</p><input type="number" id="f-done"></div>
+      <div><p class="lbl">Median Cycle Time (days)</p><input type="number" step="0.01" id="f-cycle"></div>
+      <div><p class="lbl">Median Lead Time (days)</p><input type="number" step="0.01" id="f-lead"></div>
+      <div><p class="lbl">Defects (points)</p><input type="number" id="f-defects"></div>
+      <div><p class="lbl">Value (points)</p><input type="number" id="f-value"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">% Achieved, % SP Complete, and Defect Rate calculate automatically</p>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn-primary btn" onclick="saveSprint()">Save sprint</button>
+      <button class="btn" onclick="document.getElementById('add-form').style.display='none'">Cancel</button>
+    </div>
+    <div class="err" id="form-err"></div>
+  </div>
+</div>
+
+<!-- ══ EPIC % COMPLETE ════════════════════════════════════════════════════ -->
+<div class="page" id="pg2">
+  <div class="dz" id="dz-epic" onclick="document.getElementById('fi-e').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="dropEpic(event)">
+    <input type="file" id="fi-e" accept=".csv" onchange="loadEpicFile(this.files[0])">
+    <p style="font-size:14px;font-weight:500;margin-bottom:4px">&#8593; Upload epic CSV</p>
+    <p style="font-size:12px;color:#888">Jira export — Issue key, Summary, Status, Story Points</p>
+  </div>
+  <div class="err" id="e-err"></div>
+  <div id="e-out" style="margin-top:1rem"></div>
+</div>
+
+<!-- ══ INVOICE ════════════════════════════════════════════════════════════ -->
+<div class="page" id="pg3">
+  <div class="dz" id="dz-inv" onclick="document.getElementById('fi-i').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="dropInv(event)">
+    <input type="file" id="fi-i" accept=".pdf" onchange="loadInvFile(this.files[0])">
+    <p style="font-size:14px;font-weight:500;margin-bottom:4px">&#8593; Upload invoice PDF</p>
+    <p style="font-size:12px;color:#888">Extracts line items and groups them by contract code automatically</p>
+  </div>
+  <div class="err" id="i-err"></div>
+  <div id="i-out" style="margin-top:1rem"></div>
+  <div id="processed-history" style="margin-top:1.5rem"></div>
+</div>
+
+</div><!-- /container -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const isEmbedded=(function(){try{return window.self!==window.top;}catch(e){return true;}})();
+
+// ── NAV ────────────────────────────────────────────────────────────────────
+function toggleManage(btn){
+  const drawer=document.getElementById('manage-drawer');
+  const isOpen=drawer.classList.contains('open');
+  if(isOpen){
+    drawer.classList.remove('open');
+    document.getElementById('manage-label').textContent='Manage';
+    document.querySelectorAll('.manage-btn').forEach(b=>b.className='manage-btn');
+    document.querySelectorAll('.page').forEach((p,i)=>p.className='page'+(i===0?' on':''));
+  } else {
+    drawer.classList.add('open');
+    document.getElementById('manage-label').textContent='Close';
+  }
+}
+function manageNavTo(n,btn){
+  document.querySelectorAll('.page').forEach((p,i)=>p.className='page'+(i===n?' on':''));
+  document.querySelectorAll('.manage-btn').forEach(b=>b.className='manage-btn');
+  if(btn) btn.className='manage-btn on';
+  if(n===0){
+    document.getElementById('manage-drawer').classList.remove('open');
+    document.getElementById('manage-label').textContent='Manage';
+  }
+}
+
+// ── SPRINT DATA STORE (localStorage) ──────────────────────────────────────
+const LS_SPRINTS='mc_sprints_v1';
+const LS_EPIC_PCT='mc_epic_pct';
+const LS_EPIC_BASELINE='mc_epic_baseline_v1';
+const LS_LAST_SPRINT='mc_last_parsed_sprint';
+const LS_PROCESSED_INV='mc_processed_invoices';
+const LS_REPORTED='mc_reported_items_v1';
+let CURRENT_NEW_KEYS=[];
+
+const SEED=[]; // Member Central starts blank — no historical sprints yet
+
+function loadSprints(){
+  if(isEmbedded){
+    try{
+      const raw=localStorage.getItem(LS_SPRINTS);
+      if(raw){const d=JSON.parse(raw);if(d&&d.length)return d;}
+    }catch(e){}
+    return SEED;
+  }
+  try{
+    const raw=localStorage.getItem(LS_SPRINTS);
+    if(raw){const d=JSON.parse(raw);if(d&&d.length)return d;}
+  }catch(e){}
+  return SEED;
+}
+function saveSprints(data){localStorage.setItem(LS_SPRINTS,JSON.stringify(data));}
+
+function derived(s){
+  const pctAchieved=s.goals>0?Math.round(s.goalsmet/s.goals*100):0;
+  const pctSP=s.committed>0?Math.round(s.done/s.committed*100):0;
+  const defRate=(s.defects+s.value)>0?Math.round(s.defects/(s.defects+s.value)*100):0;
+  return{...s,pctAchieved,pctSP,defRate};
+}
+
+const BLUE='#2d5fa6';
+const BLUE_T='rgba(45,95,166,0.8)';
+const TARGET_LINE='rgba(173,216,230,0.9)';
+
+function makeLineChart(id,labels,datasets,yLabel){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  return new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:10}},title:{display:!!yLabel,text:yLabel,font:{size:10}}}}
+    }
+  });
+}
+function makeBarChart(id,labels,data,yLabel){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  return new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:yLabel||'',data,backgroundColor:BLUE_T,borderColor:BLUE,borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#f0f0f0'},ticks:{font:{size:10}}}}}
+  });
+}
+let chartInstances={};
+function destroyCharts(){Object.values(chartInstances).forEach(c=>{try{c.destroy();}catch(e){}});chartInstances={};}
+function avg3(arr,key){const last3=arr.slice(-3);return Math.round(last3.reduce((s,x)=>s+(x[key]||0),0)/last3.length*10)/10;}
+function statBanner(elId,txtId,met,text){
+  const el=document.getElementById(elId);const pill=el.querySelector('.pill');const txt=document.getElementById(txtId);
+  el.className='stat-banner '+(met?'met':'notmet');pill.className='pill '+(met?'met':'notmet');pill.textContent=met?'GOAL MET':'GOAL NOT MET';txt.textContent=text;
+}
+
+function renderDashboard(){
+  const raw=loadSprints();
+  if(!raw.length){
+    document.getElementById('dash-empty').style.display='block';
+    document.getElementById('dash-charts-wrap').style.display='none';
+    ['dc-sprint','dc-committed','dc-done','dc-goals','dc-avgvel'].forEach(id=>document.getElementById(id).textContent='—');
+    const savedPct=localStorage.getItem(LS_EPIC_PCT);
+    document.getElementById('dc-epicpct').textContent=savedPct?savedPct+'%':'—';
+    return;
+  }
+  document.getElementById('dash-empty').style.display='none';
+  document.getElementById('dash-charts-wrap').style.display='block';
+
+  const data=raw.map(derived);
+  const labels=data.map(d=>'Sprint '+d.sprint);
+  const latest=data[data.length-1];
+
+  document.getElementById('dc-sprint').textContent='Sprint '+latest.sprint;
+  document.getElementById('dc-committed').textContent=latest.committed;
+  document.getElementById('dc-done').textContent=latest.done;
+  document.getElementById('dc-goals').textContent=latest.goalsmet+'/'+latest.goals;
+  const avgVel=Math.round(data.slice(-3).reduce((s,d)=>s+d.done,0)/Math.min(3,data.length));
+  document.getElementById('dc-avgvel').textContent=avgVel+' pts';
+
+  const savedEpicPct=localStorage.getItem(LS_EPIC_PCT);
+  const epicPctEl=document.getElementById('dc-epicpct');
+  if(savedEpicPct){epicPctEl.textContent=savedEpicPct+'%';epicPctEl.style.fontSize='';epicPctEl.style.color='';}
+  else{epicPctEl.textContent='—';epicPctEl.style.fontSize='16px';epicPctEl.style.color='#aaa';}
+
+  const tbody=document.getElementById('source-tbody');
+  const editCell=(sprint,field,val,type='number',step='1')=>`<td><span class="editable-cell" data-sprint="${sprint}" data-field="${field}" data-type="${type}" data-step="${step}" title="Click to edit" onclick="startEdit(this)">${val}</span></td>`;
+  tbody.innerHTML=data.map((d,i)=>{
+    const dd=derived(d);const isCurrent=i===data.length-1;
+    return `<tr class="${isCurrent?'current':''}">
+      <td>Sprint ${d.sprint}</td>
+      ${editCell(d.sprint,'release',d.release,'text','')}
+      ${editCell(d.sprint,'goals',d.goals)}
+      ${editCell(d.sprint,'goalsmet',d.goalsmet)}
+      <td>${dd.pctAchieved}%</td><td>80%</td>
+      ${editCell(d.sprint,'committed',d.committed)}
+      ${editCell(d.sprint,'done',d.done)}
+      <td>${dd.pctSP}%</td>
+      ${editCell(d.sprint,'cycle',d.cycle,'number','0.001')}
+      ${editCell(d.sprint,'lead',d.lead,'number','0.001')}
+      ${editCell(d.sprint,'defects',d.defects)}
+      ${editCell(d.sprint,'value',d.value)}
+      <td>${dd.defRate}%</td>
+    </tr>`;
+  }).join('');
+
+  destroyCharts();
+  const a3gcr=avg3(data,'pctAchieved');
+  statBanner('gcr-stat','gcr-txt',a3gcr>=80,`Average Sprint Goal Completion over last 3 sprints: ${a3gcr}%`);
+  chartInstances.gcr=makeLineChart('chart-gcr',labels,[
+    {label:'% Achieved',data:data.map(d=>d.pctAchieved),borderColor:BLUE,backgroundColor:'transparent',pointBackgroundColor:BLUE,tension:.3,pointRadius:4},
+    {label:'Goal % Achieved',data:data.map(()=>80),borderColor:TARGET_LINE,backgroundColor:'transparent',borderDash:[5,5],pointRadius:0,tension:0}
+  ]);
+  const a3scr=avg3(data,'pctSP');
+  statBanner('scr-stat','scr-txt',a3scr>=80,`Average % story points completed over last 3 sprints: ${a3scr}%`);
+  chartInstances.scr=makeBarChart('chart-scr',labels,data.map(d=>d.pctSP),'% Story Points Completed');
+  const a3mct=avg3(data,'cycle');
+  statBanner('mct-stat','mct-txt',a3mct<=6,`Median cycle time for last 3 sprints averaged ${a3mct} days`+(a3mct<=6?', on target':' — above 6-day goal'));
+  chartInstances.mct=makeLineChart('chart-mct',labels,[
+    {label:'Median Cycle Time (days)',data:data.map(d=>d.cycle),borderColor:BLUE,backgroundColor:'transparent',pointBackgroundColor:BLUE,tension:.3,pointRadius:4},
+    {label:'Goal (6 days)',data:data.map(()=>6),borderColor:TARGET_LINE,backgroundColor:'transparent',borderDash:[5,5],pointRadius:0}
+  ]);
+  const trend=data.length>=2&&data[data.length-1].done>=data[data.length-2].done;
+  statBanner('vel-stat','vel-txt',trend,'Team is '+(trend?'improving':'declining')+' over time');
+  chartInstances.vel=makeBarChart('chart-vel',labels,data.map(d=>d.done),'Velocity (Points)');
+  const a3def=avg3(data,'defRate');
+  statBanner('def-stat','def-txt',a3def<=10,`${a3def}% average defect rate over last 3 sprints`+(a3def<=10?' — on target':' — above 10% goal'));
+  chartInstances.def=makeBarChart('chart-def',labels,data.map(d=>d.defRate),'% of Defects');
+  const a3mlt=avg3(data,'lead');
+  const ltTrend=data.length>=2&&data[data.length-1].lead<=data[data.length-2].lead;
+  statBanner('mlt-stat','mlt-txt',ltTrend,`Median lead time for last 3 sprints averaged ${a3mlt} days`+(ltTrend?', improvement':' — trend increasing'));
+  chartInstances.mlt=makeLineChart('chart-mlt',labels,[
+    {label:'Median Lead Time (days)',data:data.map(d=>d.lead),borderColor:BLUE,backgroundColor:'transparent',pointBackgroundColor:BLUE,tension:.3,pointRadius:4},
+    {label:'Goal (30 days)',data:data.map(()=>30),borderColor:TARGET_LINE,backgroundColor:'transparent',borderDash:[5,5],pointRadius:0}
+  ]);
+}
+
+// ── INLINE EDIT ───────────────────────────────────────────────────────────
+function startEdit(span){
+  if(span.querySelector('input'))return;
+  const field=span.dataset.field;const sprint=parseInt(span.dataset.sprint);const type=span.dataset.type||'number';const step=span.dataset.step||'1';
+  const current=span.textContent.trim();
+  const input=document.createElement('input');input.className='editable-input';input.type=type;if(step)input.step=step;input.value=current;
+  input.style.width=type==='text'?'120px':'70px';
+  span.textContent='';span.appendChild(input);input.focus();input.select();
+  const commit=()=>commitEdit(span,sprint,field,type,input.value);
+  input.addEventListener('blur',commit);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}if(e.key==='Escape'){renderDashboard();}});
+}
+function commitEdit(span,sprintNum,field,type,rawVal){
+  const val=type==='number'?parseFloat(rawVal)||0:rawVal.trim();
+  let data=loadSprints();const idx=data.findIndex(d=>d.sprint===sprintNum);if(idx<0)return;
+  const intFields=['goals','goalsmet','committed','done','defects','value'];
+  data[idx][field]=intFields.includes(field)?Math.round(val):val;
+  saveSprints(data);renderDashboard();
+}
+
+// ── ADD/EDIT FORM ──────────────────────────────────────────────────────────
+function exportForPublishing(){
+  const data=loadSprints();
+  const lines=data.map(d=>`  {sprint:${d.sprint},release:'${d.release}',goals:${d.goals},goalsmet:${d.goalsmet},committed:${d.committed},done:${d.done},cycle:${d.cycle},lead:${d.lead},defects:${d.defects},value:${d.value}},`);
+  const snippet='const SEED=[\n'+lines.join('\n')+'\n];';
+  const el=document.getElementById('export-output');
+  navigator.clipboard.writeText(snippet).then(()=>{
+    el.innerHTML=`<div style="background:#eaf6ee;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e6e3a;margin-bottom:8px">&#10003; Copied! Paste this to Claude and ask to "bake this into the SEED data and republish" — the embedded copy uses its own isolated browser storage and can only be updated this way.</div><div class="mono" style="white-space:pre-wrap;font-size:11px">${snippet.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  }).catch(()=>{el.innerHTML=`<div class="mono" style="white-space:pre-wrap;font-size:11px">${snippet.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;});
+}
+function showAddForm(){
+  const data=loadSprints();
+  const nextSprint=data.length?data[data.length-1].sprint+1:1;
+  document.getElementById('f-sprint').value=nextSprint;
+  document.getElementById('f-release').value='';
+  ['f-goals','f-goalsmet','f-committed','f-done','f-cycle','f-lead','f-defects','f-value'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('add-form').style.display='block';
+  document.getElementById('add-form').scrollIntoView({behavior:'smooth'});
+}
+function saveSprint(){
+  const sprintNum=parseInt(document.getElementById('f-sprint').value);
+  const release=document.getElementById('f-release').value.trim()||'—';
+  const goals=parseInt(document.getElementById('f-goals').value)||0;
+  const goalsmet=parseInt(document.getElementById('f-goalsmet').value)||0;
+  const committed=parseInt(document.getElementById('f-committed').value)||0;
+  const done=parseInt(document.getElementById('f-done').value)||0;
+  const cycle=parseFloat(document.getElementById('f-cycle').value)||0;
+  const lead=parseFloat(document.getElementById('f-lead').value)||0;
+  const defects=parseInt(document.getElementById('f-defects').value)||0;
+  const value=parseInt(document.getElementById('f-value').value)||0;
+  if(!sprintNum){document.getElementById('form-err').style.display='block';document.getElementById('form-err').textContent='Sprint # is required.';return;}
+  document.getElementById('form-err').style.display='none';
+  let data=loadSprints();
+  const existing=data.findIndex(d=>d.sprint===sprintNum);
+  const entry={sprint:sprintNum,release,goals,goalsmet,committed,done,cycle,lead,defects,value};
+  if(existing>=0)data[existing]=entry;else{data.push(entry);data.sort((a,b)=>a.sprint-b.sprint);}
+  saveSprints(data);
+  document.getElementById('add-form').style.display='none';
+  renderDashboard();
+  if(S_PARSED&&S_PARSED.sprint_number===sprintNum)updateDashGoals();
+}
+
+// ── SPRINT GOALS ON DASHBOARD ──────────────────────────────────────────────
+let S_PARSED=null;
+function updateDashGoals(){
+  if(!S_PARSED||!S_PARSED.goals||!S_PARSED.goals.length)return;
+  const box=document.getElementById('dash-goals-box');const list=document.getElementById('dash-goals-list');
+  list.innerHTML=S_PARSED.goals.map(g=>`<div class="goal-item">${g}</div>`).join('');
+  box.style.display='block';
+}
+
+// ── SPRINT REPORT PARSING (generic — works with any Jira project key) ─────
+function getReportedItems(sprintNum){try{const all=JSON.parse(localStorage.getItem(LS_REPORTED)||'{}');return all[sprintNum]||[];}catch(e){return [];}}
+function addReportedItems(sprintNum,keys){try{const all=JSON.parse(localStorage.getItem(LS_REPORTED)||'{}');const existing=all[sprintNum]||[];all[sprintNum]=[...new Set([...existing,...keys])];localStorage.setItem(LS_REPORTED,JSON.stringify(all));}catch(e){}}
+function clearReportedItems(sprintNum){try{const all=JSON.parse(localStorage.getItem(LS_REPORTED)||'{}');delete all[sprintNum];localStorage.setItem(LS_REPORTED,JSON.stringify(all));}catch(e){}}
+function computeNewVsReported(p){
+  const sprintNum=p.sprint_number;const reported=getReportedItems(sprintNum);
+  const allCompletedKeys=p.completed.map(i=>i.key);const newKeys=allCompletedKeys.filter(k=>!reported.includes(k));
+  const alreadyCovered=p.completed.filter(i=>reported.includes(i.key));const newItems=p.completed.filter(i=>newKeys.includes(i.key));
+  CURRENT_NEW_KEYS=newKeys;return{newItems,alreadyCovered,reported,sprintNum};
+}
+function renderCoverageBanner(diff){
+  const el=document.getElementById('coverage-banner');if(!el)return;
+  if(diff.alreadyCovered.length===0){el.innerHTML='';return;}
+  el.innerHTML=`<div style="background:#e3f0fd;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#1254a0">
+    <strong>${diff.alreadyCovered.length}</strong> completed item(s) were already covered in a previous update this sprint.
+    <strong>${diff.newItems.length}</strong> item(s) are new since the last update.
+    <button class="btn" style="font-size:10px;padding:2px 8px;margin-left:8px;background:#fff" onclick="toggleCoverageDetail()">View details</button>
+    <button class="btn" style="font-size:10px;padding:2px 8px;margin-left:4px;background:#fff;color:#c00" onclick="resetCoverageForSprint(${diff.sprintNum})">Reset (include all again)</button>
+    <div id="coverage-detail" style="display:none;margin-top:8px">
+      <p style="font-weight:600;margin-bottom:4px">Already covered (excluded):</p>
+      <ul style="margin:0 0 8px 18px">${diff.alreadyCovered.map(i=>`<li>${i.summary||i.key}</li>`).join('')}</ul>
+      <p style="font-weight:600;margin-bottom:4px">New this update (included):</p>
+      <ul style="margin:0 0 0 18px">${diff.newItems.map(i=>`<li>${i.summary||i.key}</li>`).join('')}</ul>
+    </div>
+  </div>`;
+}
+function toggleCoverageDetail(){const d=document.getElementById('coverage-detail');if(d)d.style.display=d.style.display==='none'?'block':'none';}
+function resetCoverageForSprint(sprintNum){
+  if(!confirm('This will treat all completed items in Sprint '+sprintNum+' as new again. Use this only if you need to re-include something. Continue?'))return;
+  clearReportedItems(sprintNum);
+  if(S_PARSED){const diff=computeNewVsReported(S_PARSED);renderCoverageBanner(diff);}
+}
+
+function runParse(){
+  const txt=document.getElementById('paste').value.trim();
+  if(!txt){showErr('s-err','Paste sprint report text first.');return;}
+  clearErr('s-err');
+  S_PARSED=parseSprint(txt);
+  renderSprint(S_PARSED);
+  const diff=computeNewVsReported(S_PARSED);
+  renderCoverageBanner(diff);
+  updateDashGoals();
+  if(S_PARSED.sprint_number){
+    const compPts=S_PARSED.completed.reduce((s,i)=>s+(i.points||0),0);
+    const committed=S_PARSED.pts_start;
+    const issuesForMetrics=[...S_PARSED.completed,...(S_PARSED.incomplete||[])];
+    const defPts=issuesForMetrics.filter(i=>['Defect','Incident'].includes(i.type)).reduce((s,i)=>s+(i.points||0),0);
+    const valPts=issuesForMetrics.filter(i=>['Story','Spike','Scope Change'].includes(i.type)).reduce((s,i)=>s+(i.points||0),0);
+    document.getElementById('f-sprint').value=S_PARSED.sprint_number;
+    document.getElementById('f-goals').value=S_PARSED.goals.length;
+    document.getElementById('f-committed').value=committed;
+    document.getElementById('f-done').value=compPts;
+    document.getElementById('f-defects').value=defPts;
+    document.getElementById('f-value').value=valPts;
+  }
+  try{localStorage.setItem(LS_LAST_SPRINT,JSON.stringify({...S_PARSED,savedAt:Date.now()}));}catch(e){}
+  const ind=document.getElementById('parsed-indicator');if(ind)ind.style.display='inline';
+}
+function restoreLastSprint(){
+  try{
+    const raw=localStorage.getItem(LS_LAST_SPRINT);if(!raw)return;
+    const saved=JSON.parse(raw);S_PARSED=saved;
+    renderSprint(S_PARSED);
+    const diff=computeNewVsReported(S_PARSED);renderCoverageBanner(diff);
+    updateDashGoals();
+    const ind=document.getElementById('parsed-indicator');if(ind)ind.style.display='inline';
+  }catch(e){}
+}
+function startNewSprint(){
+  if(!confirm('This clears the saved sprint context. Your saved Dashboard history is NOT affected. Continue?'))return;
+  S_PARSED=null;CURRENT_NEW_KEYS=[];
+  localStorage.removeItem(LS_LAST_SPRINT);
+  document.getElementById('paste').value='';document.getElementById('s-out').innerHTML='';
+  document.getElementById('parsed-indicator').style.display='none';document.getElementById('dash-goals-box').style.display='none';
+  const cb=document.getElementById('coverage-banner');if(cb)cb.innerHTML='';
+}
+
+// Generic ticket key: any uppercase-letter project prefix + hyphen + digits (e.g. MC-123, MEMBERCENTRAL-45)
+const KEY_RE='[A-Z][A-Z0-9]{1,14}-\\d+';
+
+function parseGoals(txt){
+  const goals=[];
+  txt.replace(/\n/g,' ').split(/(?=\d+\.\s+[A-Z])/).forEach(p=>{
+    const m=p.match(/^\d+\.\s+(.+)/);
+    if(m){let c=m[1].replace(/\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d.*/,'').replace(/\s*(Guideline|Remaining|Sprint actions|Active sprint|Story Points).*/i,'').trim();if(c.length>8&&c.length<400)goals.push(c);}
+  });
+  return goals;
+}
+function parseSprint(txt){
+  const p={};
+  const nm=txt.match(/Sprint\s+(\d+)/i);
+  p.sprint_number=nm?parseInt(nm[1]):null;p.sprint_name=nm?nm[0].trim():'Unknown Sprint';p.goals=parseGoals(txt);
+
+  const keyRe=new RegExp(KEY_RE);
+
+  const compSec=txt.match(/Completed Issues[\s\S]*?(?=Issues Not Completed)/i)?.[0]||'';
+  const completed=[];let addedFromCompleted=0;
+  compSec.split('\n').forEach(l=>{
+    const km=l.match(keyRe);if(!km)return;
+    const pm=l.match(/(\d+)\s*$/);
+    const tm=l.match(/(Defect|Incident|Scope Change|Spike|Story)/i);
+    const raw=l.replace(keyRe,'').replace(/\*/,'').replace(/\s+(Story|Defect|Incident|Scope Change|Spike)\s.*/i,'').replace(/\s+(High|Medium|Low)\s.*/i,'').trim();
+    const pts=pm?parseInt(pm[1]):0;const isAdded=l.includes('*');
+    if(isAdded)addedFromCompleted+=pts;
+    completed.push({key:km[0],type:tm?tm[1]:'Story',points:pts,added:isAdded,summary:raw});
+  });
+  p.completed=completed;
+  const completedTotal=completed.reduce((s,i)=>s+(i.points||0),0);
+
+  const incSec=txt.match(/Issues Not Completed[\s\S]*?(?=Issues Removed)/i)?.[0]||txt.match(/Issues Not Completed[\s\S]*?$/i)?.[0]||'';
+  let addedFromIncomplete=0;const incomplete=[];
+  incSec.split('\n').forEach(l=>{
+    const km=l.match(keyRe);if(!km)return;
+    const pm=l.match(/(\d+)(?:\s*[→\u2192>]+\s*(\d+))?\s*$/);
+    const tm=l.match(/(Defect|Incident|Scope Change|Spike|Story)/i);
+    const pts=pm?(parseInt(pm[2]||pm[1])||0):0;
+    const raw=l.replace(keyRe,'').replace(/\*/,'').replace(/\s+(Defect|Incident|Scope Change|Spike|Story)\s.*/i,'').replace(/\s+(High|Medium|Low)\s.*/i,'').trim();
+    const isAdded=l.includes('*');if(isAdded)addedFromIncomplete+=pts;
+    incomplete.push({key:km[0],type:tm?tm[1]:'Story',points:pts,added:isAdded,summary:raw});
+  });
+  p.incomplete=incomplete;
+  const incompleteTotal=incomplete.reduce((s,i)=>s+(i.points||0),0);
+
+  const remSec=txt.match(/Issues Removed[\s\S]*?$/i)?.[0]||'';
+  let remPts=0,addedFromRemoved=0;
+  remSec.split('\n').forEach(l=>{
+    const km=l.match(keyRe);if(!km)return;
+    const pm=l.match(/(\d+)\s*$/);
+    if(pm){const v=parseInt(pm[1]);if(!isNaN(v)){remPts+=v;if(l.includes('*'))addedFromRemoved+=v;}}
+  });
+  p.pts_removed=remPts;
+
+  const addedTotal=addedFromCompleted+addedFromIncomplete+addedFromRemoved;
+  p.pts_added=addedTotal;
+  p.pts_start=completedTotal+incompleteTotal+remPts-addedTotal;
+  return p;
+}
+
+function renderSprint(p){
+  const compPts=p.completed.reduce((s,i)=>s+(i.points||0),0);
+  const committed=p.pts_start,added=p.pts_added,removed=p.pts_removed;
+  const rollover=Math.max(0,committed-removed-compPts);
+  const issuesForMetrics=[...p.completed,...(p.incomplete||[])];
+  const defPts=issuesForMetrics.filter(i=>['Defect','Incident'].includes(i.type)).reduce((s,i)=>s+(i.points||0),0);
+  const valPts=issuesForMetrics.filter(i=>['Story','Spike','Scope Change'].includes(i.type)).reduce((s,i)=>s+(i.points||0),0);
+  const valAdd=(defPts+valPts)>0?Math.round(valPts/(defPts+valPts)*100):0;
+  const gc=p.goals.length;
+  document.getElementById('s-out').innerHTML=`
+    <div class="grid-cards">
+      ${[['Sprint',p.sprint_name,'font-size:12px',''],['Goals',gc,'',''],['Committed',committed,'',''],['Completed',compPts,'','color:#1e6e3a'],['Rolling over',rollover,'','color:#7a5c00']].map(([l,v,vs,vc])=>`<div class="card"><p class="lbl">${l}</p><p class="val" style="${vs};${vc}">${v}</p></div>`).join('')}
+    </div>
+    <div class="stab-row">
+      <button class="btn" id="st0" onclick="stab(0,this)" style="background:#f0f0f0">Metrics</button>
+      <button class="btn" id="st1" onclick="stab(1,this)">Goals (${gc})</button>
+      <button class="btn" id="st2" onclick="stab(2,this)">Outputs</button>
+    </div>
+    <div id="sv0">
+      <div class="grid-cards">
+        ${[['Sprint #',p.sprint_number||'','number','m0'],['Release #','','text','m1'],['# Goals',gc,'number','m2'],['Goals achieved','','number','m3'],['SP committed',committed,'number','m4'],['SP done',compPts,'number','m5'],['Added',added,'number','m6'],['Removed',removed,'number','m7'],['Defects (pts)',defPts,'number','m8'],['Value (pts)',valPts,'number','m9'],['Cycle time','','number','m10'],['Lead time','','number','m11']].map(([l,v,t,id])=>`<div class="card"><p class="lbl">${l}</p><input type="${t}" id="${id}" value="${v}" placeholder="—" style="margin-top:4px"></div>`).join('')}
+      </div>
+      <p style="font-size:11px;color:#888;margin-top:6px">Enter Cycle &amp; Lead time from Jira Control Chart, then click Save to Dashboard to update charts.</p>
+      <button class="btn" style="margin-top:8px" onclick="saveFromSprintTab()">Save to Dashboard</button>
+    </div>
+    <div id="sv1" style="display:none">
+      ${gc?p.goals.map((g,i)=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #eee"><input type="checkbox" id="g${i}" style="margin-top:2px;cursor:pointer"><label for="g${i}" style="font-size:13px;cursor:pointer;line-height:1.4">${g}</label></div>`).join('')+`<div style="margin-top:10px;display:flex;align-items:center;gap:10px"><button class="btn" onclick="tally()">Tally goals</button><span id="gtally" style="font-size:13px;color:#666"></span></div>`:'<p style="font-size:13px;color:#888">No goals found.</p>'}
+    </div>
+    <div id="sv2" style="display:none">
+      <p class="sec">Metrics dashboard row</p>
+      <div class="mono" id="sc0">${['Sprint #:        Sprint '+(p.sprint_number||'??'),'Release #:       [enter above]','# Sprint goals:  '+gc,'Goals achieved:  [tally goals tab]','% achieved:      [auto-calculates]','Goal % target:   80%','SP committed:    '+committed,'SP done:         '+compPts,'% SP complete:   '+Math.round(compPts/Math.max(committed,1)*100)+'%','Cycle time:      [enter above then save]','Defects (pts):   '+defPts,'Value (pts):     '+valPts,'Value add %:     '+valAdd+'%','Lead time:       [enter above then save]'].join('\n')}</div>
+      <button class="btn" style="margin-top:6px" onclick="cp('sc0')">Copy</button>
+      <p class="sec">Retro / sprint review snapshot</p>
+      <div class="mono" id="sc1">${['Started with:  '+p.pts_start+' pts','Added:         '+added+' pts','Removed:       '+removed+' pts','Completed:     '+compPts+' pts','Rolling over:  '+rollover+' pts'].join('\n')}</div>
+      <button class="btn" style="margin-top:6px" onclick="cp('sc1')">Copy</button>
+    </div>`;
+}
+function saveFromSprintTab(){
+  if(!S_PARSED||!S_PARSED.sprint_number)return;
+  const f=id=>parseFloat(document.getElementById(id)?.value)||0;const n=id=>parseInt(document.getElementById(id)?.value)||0;
+  const entry={sprint:S_PARSED.sprint_number,release:document.getElementById('m1')?.value||'—',goals:n('m2'),goalsmet:n('m3'),committed:n('m4'),done:n('m5'),cycle:f('m10'),lead:f('m11'),defects:n('m8'),value:n('m9')};
+  let data=loadSprints();const idx=data.findIndex(d=>d.sprint===entry.sprint);
+  if(idx>=0)data[idx]=entry;else{data.push(entry);data.sort((a,b)=>a.sprint-b.sprint);}
+  saveSprints(data);renderDashboard();updateDashGoals();
+  alert('Sprint '+entry.sprint+' saved to dashboard!');
+}
+function stab(n,btn){[0,1,2].forEach(i=>{const v=document.getElementById('sv'+i);if(v)v.style.display=i===n?'block':'none';});document.querySelectorAll('.stab-row .btn').forEach(b=>b.style.background='#fff');btn.style.background='#f0f0f0';}
+function tally(){const boxes=document.querySelectorAll('[id^="g"]');const done=[...boxes].filter(b=>b.checked).length;const el=document.getElementById('gtally');if(el)el.textContent=done+'/'+boxes.length+' achieved ('+Math.round(done/boxes.length*100)+'%)';const m3=document.getElementById('m3');if(m3)m3.value=done;}
+
+// ── EPIC CSV — dynamic baseline (no hardcoded epic list) ──────────────────
+const DONE_S=['Done','In Review','Quality Assurance','Ready for UAT'],IP_S=['In Progress'],EXCL_S=['Canceled','Cancelled'];
+function dropEpic(e){e.preventDefault();document.getElementById('dz-epic').classList.remove('drag');loadEpicFile(e.dataTransfer.files[0]);}
+function loadEpicFile(f){if(f)f.text().then(parseEpicCSV);}
+function parseCSVLine(line){const fields=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){if(line[i]==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(line[i]===','&&!inQ){fields.push(cur.trim());cur='';}else cur+=line[i];}fields.push(cur.trim());return fields;}
+function parseEpicCSV(txt){
+  const lines=txt.trim().split('\n').filter(l=>l.trim());
+  if(!lines.length){showErr('e-err','File appears empty.');return;}
+  const hdr=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  const ki=hdr.findIndex(h=>h.includes('issue key')||h==='key'),ni=hdr.findIndex(h=>h.includes('summary')),si=hdr.findIndex(h=>h.includes('status')),pi=hdr.findIndex(h=>h.includes('story point'));
+  if(ki<0||ni<0||si<0||pi<0){showErr('e-err','Could not find columns. Headers found: '+hdr.join(', '));return;}
+  const keyValRe=new RegExp('^'+KEY_RE+'$');
+  const epics=[];
+  for(let i=1;i<lines.length;i++){
+    const c=parseCSVLine(lines[i]);const key=(c[ki]||'').trim();
+    if(!keyValRe.test(key))continue;
+    const status=(c[si]||'').trim();if(EXCL_S.includes(status))continue;
+    epics.push({key,name:(c[ni]||'').trim(),status,pts:Math.round(parseFloat(c[pi]||'0')||0)});
+  }
+  if(!epics.length){showErr('e-err','No epics found — check that Issue key values look like PROJECT-123.');return;}
+  clearErr('e-err');
+  const dz=document.getElementById('dz-epic');dz.className='dz ok';
+  dz.innerHTML=`<p style="font-size:14px;font-weight:500;color:#1e6e3a;margin-bottom:4px">&#10003; ${epics.length} epics loaded</p><p style="font-size:12px;color:#555">${epics.filter(e=>DONE_S.includes(e.status)).length} Done &middot; ${epics.filter(e=>IP_S.includes(e.status)).length} In Progress</p>`;
+  renderEpics(epics);
+}
+let CURRENT_EPICS_DATA=null;
+function renderEpics(epics){
+  CURRENT_EPICS_DATA=epics;
+  const hasIP=epics.some(e=>IP_S.includes(e.status));
+  renderEpicsWithAdj(hasIP?2:0);
+}
+function renderEpicsWithAdj(ipAdjPct){
+  const epics=CURRENT_EPICS_DATA;if(!epics)return;
+  const total=epics.reduce((s,e)=>s+e.pts,0),done=epics.filter(e=>DONE_S.includes(e.status)).reduce((s,e)=>s+e.pts,0);
+  const hasIP=epics.some(e=>IP_S.includes(e.status));
+  const adjFraction=ipAdjPct/100;const pct=total?Math.round((done/total+adjFraction)*1000)/10:0;
+  const equivPts=total?Math.round(total*adjFraction*10)/10:0;
+  localStorage.setItem(LS_EPIC_PCT,pct);
+  const epicPctEl=document.getElementById('dc-epicpct');if(epicPctEl){epicPctEl.textContent=pct+'%';epicPctEl.style.fontSize='';epicPctEl.style.color='';}
+
+  // Compare against last uploaded snapshot (dynamic baseline — no hardcoded epic list)
+  let baseline=[];try{baseline=JSON.parse(localStorage.getItem(LS_EPIC_BASELINE)||'[]');}catch(e){}
+  const changes=epics.filter(e=>{const b=baseline.find(x=>x.key===e.key);return b&&b.status!==e.status;});
+  const newE=epics.filter(e=>!baseline.find(x=>x.key===e.key));
+
+  document.getElementById('e-out').innerHTML=`
+    <div class="pct-row"><span style="font-size:13px;color:#555">Done pts</span><span style="font-size:18px;font-weight:500">${done}</span></div>
+    <div class="pct-row"><span style="font-size:13px;color:#555">Total pts</span><span style="font-size:18px;font-weight:500">${total}</span></div>
+    <div class="pct-row" style="align-items:center">
+      <span style="font-size:13px;color:#555">IP adj.${hasIP?'':' <span style=\"color:#aaa\">(no In Progress epics)</span>'}</span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <input type="number" id="ip-adj-input" value="${ipAdjPct}" min="0" max="20" step="0.5" style="width:55px;font-size:14px;padding:3px 6px;border-radius:6px;border:1px solid #ddd;text-align:right" oninput="onIpAdjChange(this.value)">
+        <span style="font-size:14px;font-weight:500">%</span>
+      </span>
+    </div>
+    <p class="hint" style="text-align:right;margin-top:-4px">${ipAdjPct}% ≈ ${equivPts} of ${total} total pts &middot; typical range 2&ndash;5%</p>
+    <div class="pct-row"><span style="font-size:13px;color:#555">% Complete</span><span style="font-size:22px;font-weight:500;color:#1e6e3a">${pct}%</span></div>
+    <div class="mono" id="epct" style="margin-top:8px">Done\t${done}\nTotal\t${total}\nIP ${ipAdjPct}%\t${ipAdjPct}%\nPercent Complete\t${pct}%</div>
+    <button class="btn" style="margin-top:6px" onclick="cp('epct')">Copy</button>
+    ${baseline.length?(changes.length||newE.length?`<p class="sec" style="margin-top:1rem">${changes.length} status change(s) since last upload${newE.length?`, ${newE.length} new epic(s)`:''}</p>
+    <div style="border:1px solid #eee;border-radius:8px;overflow:hidden"><table class="etable"><thead><tr><th>Key</th><th>Epic</th><th>Was</th><th>Now</th><th>Pts</th></tr></thead>
+    <tbody>${[...changes.map(e=>{const b=baseline.find(x=>x.key===e.key);const sc=DONE_S.includes(e.status)?'ok-b':IP_S.includes(e.status)?'warn-b':'info-b';return`<tr style="background:#fff8e1"><td style="font-size:11px;color:#888">${e.key}</td><td style="font-size:12px">${e.name.length>42?e.name.substring(0,42)+'...':e.name}</td><td style="font-size:11px;color:#888">${b.status}</td><td><span class="badge ${sc}">${e.status}</span></td><td>${e.pts}</td></tr>`;}),...newE.map(e=>`<tr style="background:#e3f0fd"><td style="font-size:11px;color:#888">${e.key}</td><td style="font-size:12px">${e.name.length>42?e.name.substring(0,42)+'...':e.name}</td><td style="font-size:11px;color:#888">new</td><td><span class="badge info-b">${e.status}</span></td><td>${e.pts}</td></tr>`)].join('')}</tbody></table></div>`
+    :'<p style="font-size:12px;color:#888;margin-top:8px">&#10003; No status changes since last upload.</p>')
+    :'<p style="font-size:12px;color:#888;margin-top:8px">First upload saved as baseline — future uploads will show status changes here.</p>'}`;
+
+  // Save this upload as the new baseline for next time
+  localStorage.setItem(LS_EPIC_BASELINE,JSON.stringify(epics));
+}
+function onIpAdjChange(val){
+  const pct=parseFloat(val);if(isNaN(pct)||pct<0)return;
+  renderEpicsWithAdj(pct);
+  setTimeout(()=>{const el=document.getElementById('ip-adj-input');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}},0);
+}
+
+// ── INVOICE — groups dynamically by whatever contract code(s) appear ──────
+function dropInv(e){e.preventDefault();document.getElementById('dz-inv').classList.remove('drag');loadInvFile(e.dataTransfer.files[0]);}
+async function loadInvFile(f){
+  if(!f)return;clearErr('i-err');
+  document.getElementById('i-out').innerHTML='<p style="font-size:13px;color:#666"><span class="spinner"></span> Reading PDF...</p>';
+  try{const ab=await f.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;let txt='';for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const tc=await pg.getTextContent();txt+=tc.items.map(x=>x.str).join(' ')+'\n';}parseInvoice(txt);}
+  catch(err){showErr('i-err','Could not read PDF: '+err.message);}
+}
+function monthNameToNum(s){
+  const months={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const m=s.match(/([A-Za-z]{3,9})\s+(\d{1,2}),?\s*(\d{4})/);if(!m)return s;
+  const mon=months[m[1].toLowerCase().substring(0,3)]||1;
+  return String(mon).padStart(2,'0')+'/'+String(m[2]).padStart(2,'0')+'/'+m[3];
+}
+function parseInvoice(txt){
+  const invM=txt.match(/Invoice\s+ID\s+(\d+)/i)||txt.match(/Invoice\s+(\d{6,})/i);
+  const invNum=invM?invM[1]:'—';
+  const dateOld=txt.match(/Issue\s+Date\s+([\d\/]+)/i);
+  const dateNew=txt.match(/Invoice date\s+([A-Za-z]{3,9}\s+\d{1,2},?\s*\d{4})/i);
+  const invDate=dateOld?dateOld[1]:(dateNew?monthNameToNum(dateNew[1]):'—');
+
+  const rows=[];
+  const re=/\[([^\]]+)\]\s+(.*?):?\s+([\w\s]+?)\s+\((\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})\)\s+(?:[\w\s\-]+?\s+)?(\d+\.\d{2})\s+\$[\d,.]+\s+\$([\d,]+)/g;
+  let m;while((m=re.exec(txt))!==null){
+    const code=m[1].trim();
+    rows.push({invNum,invDate,start:m[4],end:m[5],person:m[3].trim(),code,hrs:parseFloat(m[6]),rate:160,amt:parseInt(m[7].replace(/,/g,'')),notes:m[2].trim()});
+  }
+  if(!rows.length){showErr('i-err','Could not parse line items — PDF text layer may not be readable.');return;}
+
+  const processed=getProcessedInvoices();const already=processed.find(p=>p.invNum===invNum);
+  document.getElementById('dz-inv').className='dz ok';
+  document.getElementById('dz-inv').innerHTML=`<p style="font-size:14px;font-weight:500;color:#1e6e3a;margin-bottom:4px">&#10003; Invoice #${invNum} parsed</p><p style="font-size:12px;color:#555">${rows.length} line items</p>`;
+  if(already){showDuplicateWarning(invNum,already.date);renderInvoice(rows,invNum,invDate,false);}
+  else{renderInvoice(rows,invNum,invDate,true);markInvoiceProcessed(invNum,rows);}
+}
+function getProcessedInvoices(){try{return JSON.parse(localStorage.getItem(LS_PROCESSED_INV)||'[]');}catch(e){return [];}}
+function markInvoiceProcessed(invNum,rows){
+  const list=getProcessedInvoices();const total=rows.reduce((s,r)=>s+r.amt,0);
+  list.push({invNum,date:new Date().toLocaleDateString(),total});
+  localStorage.setItem(LS_PROCESSED_INV,JSON.stringify(list));
+  renderProcessedHistory();
+}
+function renderProcessedHistory(){
+  const el=document.getElementById('processed-history');if(!el)return;
+  const list=getProcessedInvoices();if(!list.length){el.innerHTML='';return;}
+  el.innerHTML=`<p class="sec">Processed invoices (this browser)</p>
+    <div style="border:1px solid #eee;border-radius:8px;overflow:hidden">
+      <table class="etable"><thead><tr><th>Invoice #</th><th>Processed</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${list.slice().reverse().map(p=>`<tr><td>${p.invNum}</td><td style="font-size:11px;color:#888">${p.date}</td><td style="text-align:right">$${p.total.toLocaleString()}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+}
+function showDuplicateWarning(invNum,prevDate){
+  const el=document.getElementById('i-out');
+  el.innerHTML=`<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:12px 14px;margin-bottom:1rem">
+    <p style="font-size:13px;font-weight:600;color:#e65100;margin:0 0 4px">⚠ Invoice #${invNum} was already processed on ${prevDate}</p>
+    <p style="font-size:12px;color:#7a5c00;margin:0">This is shown for review only — no totals were changed.</p>
+  </div>`;
+}
+function renderInvoice(rows,invNum,invDate,wasNew){
+  // Group dynamically by whatever contract code(s) appear on the invoice
+  const byCode={};
+  rows.forEach(r=>{if(!byCode[r.code])byCode[r.code]={amt:0,hrs:0,rows:[]};byCode[r.code].amt+=r.amt;byCode[r.code].hrs+=r.hrs;byCode[r.code].rows.push(r);});
+  const codes=Object.keys(byCode);
+  const grandTotal=rows.reduce((s,r)=>s+r.amt,0);
+
+  const byP={};rows.forEach(r=>{const k=r.person;if(!byP[k])byP[k]={hrs:0,amt:0};byP[k].hrs+=r.hrs;byP[k].amt+=r.amt;});
+
+  const tsv=['Invoice #\tDate\tPeriod Start\tPeriod End\tPerson\tContract Code\tHours\tRate\tAmount\tNotes\tProcessed Date',
+    ...rows.map(r=>[r.invNum,r.invDate,r.start,r.end,r.person,r.code,r.hrs,r.rate,r.amt,r.notes,''].join('\t'))].join('\n');
+
+  const banner=wasNew
+    ?`<div style="background:#eaf6ee;border-radius:8px;padding:8px 12px;font-size:12px;color:#1e6e3a;margin-bottom:1rem">&#10003; ${rows.length} line items parsed.</div>`
+    :document.getElementById('i-out').innerHTML;
+
+  document.getElementById('i-out').innerHTML=`
+    ${banner}
+    <div class="grid-cards">
+      ${codes.map(c=>`<div class="card"><p class="lbl">${c}</p><p class="val" style="font-size:16px;color:#1254a0">$${byCode[c].amt.toLocaleString()}</p></div>`).join('')}
+      <div class="card"><p class="lbl">Total</p><p class="val" style="font-size:16px">$${grandTotal.toLocaleString()}</p></div>
+    </div>
+    <p class="sec">Burn by person — all contract codes combined</p>
+    <div style="border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:1rem"><table class="etable"><thead><tr><th>Person</th><th style="text-align:right">Hours</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${Object.entries(byP).map(([name,p])=>`<tr><td style="font-weight:500">${name}</td><td style="text-align:right">${p.hrs.toFixed(2)}</td><td style="text-align:right;font-weight:500;color:#1254a0">$${p.amt.toLocaleString()}</td></tr>`).join('')}</tbody></table></div>
+    <p class="hint">Add each person's amount to their row in the Burn by Person tab.</p>
+    <p class="sec">Invoice log rows</p><div id="inv-tsv" style="display:none">${tsv}</div>
+    <button class="btn" onclick="cp('inv-tsv')">Copy all rows for Excel paste</button>
+    <p class="hint" style="margin-top:4px">Paste into the Invoice Log tab at the next empty row</p>`;
+}
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function cp(id){const el=document.getElementById(id);if(!el)return;navigator.clipboard.writeText(el.textContent||el.innerText).then(()=>{});}
+function showErr(id,msg){const el=document.getElementById(id);if(el){el.style.display='block';el.textContent=msg;}}
+function clearErr(id){const el=document.getElementById(id);if(el){el.style.display='none';el.textContent='';}}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  renderDashboard();
+  restoreLastSprint();
+  renderProcessedHistory();
+  if(isEmbedded){
+    const mb=document.getElementById('manage-btn-top');
+    if(mb)mb.style.display='none';
+  }
+});
+</script>
+</body>
+</html>
